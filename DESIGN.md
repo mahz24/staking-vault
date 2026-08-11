@@ -40,7 +40,25 @@ script — the vault's constructor requires the token's address.
 **Why**: Real dependency, not an arbitrary ordering choice — `ERC4626`'s
 constructor takes `IERC20 asset_`, which must already exist on-chain.
 
+## 5. Yield Mechanism
+**Decision**: Owner-only `depositYield(uint256 amount)` function that pulls
+real tokens from the owner's wallet into the vault via `safeTransferFrom`
+(requiring prior `approve()` from the owner), rather than mathematically
+simulating yield without backing tokens.
+**Why**: `ERC4626.totalAssets()` reflects the vault's real token balance. A
+purely mathematical/time-based yield formula would create a promise the
+contract can't keep — accounting for "yield" that has no real tokens behind
+it, causing withdrawals to fail once someone tries to redeem more than the
+vault actually holds.
+**Why owner-only**: Unrestricted yield injection would functionally be the
+same attack surface as the inflation attack (section 2) — anyone manipulating
+the vault's asset balance outside of controlled, auditable logic. Routing it
+through an explicit, event-emitting, access-controlled function keeps yield
+injection traceable and intentional.
+**Flow**: owner calls `token.approve(vaultAddress, amount)` on the underlying
+asset, then `vault.depositYield(amount)` — a standard two-step ERC-20
+authorization pattern.
+
 ## Open / Upcoming Decisions
-- [ ] Yield generation mechanism (how does the vault's asset balance grow over time?)
 - [ ] Withdrawal limits or cooldowns, if any
 - [ ] Reentrancy protection strategy for any custom logic added on top of ERC4626
