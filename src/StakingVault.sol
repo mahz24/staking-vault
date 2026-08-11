@@ -22,4 +22,8 @@ contract StakingVault is ERC4626, Ownable {
         IERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);
         emit YieldDeposited(msg.sender, amount);
     }
+
+    function _decimalsOffset() internal pure override returns (uint8) {
+        return 3;
+    }
 }

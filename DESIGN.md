@@ -18,11 +18,19 @@ vault's balance (bypassing `deposit()`) to inflate the assets-per-share ratio,
 causing later depositors' shares to round down to zero and effectively
 donating their deposit to the attacker.
 **Mitigation**: OpenZeppelin's ERC4626 implementation uses a virtual
-offset in its share/asset conversion math, making the attack economically
-unviable without requiring special-casing the first deposit manually.
-**Verification plan**: a dedicated test will simulate a donation attack
-(direct token transfer to the vault before any real deposit) to confirm a
-subsequent legitimate depositor still receives a fair share of assets.
+offset in its share/asset conversion math (`_decimalsOffset()`).
+**Finding**: The default offset (`0`) was insufficient — a dedicated attack
+test (`testInflationAttackDoesNotStealVictimFunds`) confirmed a victim could
+still receive `0` shares when the attacker's donation was large relative to
+the victim's deposit (e.g. a 10,000-token donation against a 5,000-token
+legitimate deposit). OpenZeppelin's own documentation confirms the default
+offset makes the attack *unprofitable* for the attacker, but does not
+guarantee a fair share price for every victim in every scenario.
+**Resolution**: Overrode `_decimalsOffset()` to return `3`, exponentially
+raising the donation required to manipulate share price. Re-running the
+attack test with this change confirms the victim now receives a fair,
+non-zero share of the vault.
+**Verification**: `test/unit/StakingVaultTest.t.sol::testInflationAttackDoesNotStealVictimFunds`
 
 ## 3. Underlying Asset: Mock ERC-20
 **Decision**: Deploy a custom `MockERC20` with a public, unrestricted `mint()`
