@@ -98,4 +98,36 @@ contract StakingVaultTest is Test {
         vm.expectRevert();
         vault.depositYield(YIELD_AMOUNT);
     }
+
+    function testFuzzVaultNeverOverpaysAgainstBackedAssets(
+    uint256 depositAmount,
+    uint256 yieldAmount
+) public {
+    depositAmount = bound(depositAmount, 1, 1_000_000 ether);
+    yieldAmount = bound(yieldAmount, 0, 1_000_000 ether);
+
+    address user = makeAddr("fuzzUser");
+    token.mint(user, depositAmount);
+
+    vm.startPrank(user);
+    token.approve(address(vault), depositAmount);
+    uint256 shares = vault.deposit(depositAmount, user);
+    vm.stopPrank();
+
+    address owner = vault.owner();
+    if (yieldAmount > 0) {
+        token.mint(owner, yieldAmount);
+        vm.startPrank(owner);
+        token.approve(address(vault), yieldAmount);
+        vault.depositYield(yieldAmount);
+        vm.stopPrank();
+    }
+
+    uint256 vaultBalanceBefore = token.balanceOf(address(vault));
+
+    vm.prank(user);
+    uint256 assetsBack = vault.redeem(shares, user, user);
+
+    assertLe(assetsBack, vaultBalanceBefore);
+}
 }
