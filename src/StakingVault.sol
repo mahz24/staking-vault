@@ -12,11 +12,7 @@ contract StakingVault is ERC4626, Ownable {
 
     event YieldDeposited(address indexed owner, uint256 amount);
 
-    constructor(IERC20 asset_)
-        ERC20("Staking Vault Shares", "svTOKEN")
-        ERC4626(asset_)
-        Ownable(msg.sender)
-    {}
+    constructor(IERC20 asset_) ERC20("Staking Vault Shares", "svTOKEN") ERC4626(asset_) Ownable(msg.sender) {}
 
     function depositYield(uint256 amount) external onlyOwner {
         IERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);

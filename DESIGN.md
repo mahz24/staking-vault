@@ -67,6 +67,19 @@ injection traceable and intentional.
 asset, then `vault.depositYield(amount)` — a standard two-step ERC-20
 authorization pattern.
 
+## 6. Rounding Behavior
+**Observed**: Withdrawals/redemptions can be off by up to 1 wei from the
+theoretical exact amount, always rounding in the vault's favor (never the
+user's). This comes from OpenZeppelin's `+1` virtual asset offset in the
+share/asset conversion math (the same mechanism used for inflation attack
+mitigation — see section 2), combined with Solidity's integer division
+always truncating downward.
+**Why this is intentional, not a bug**: rounding in the vault's favor
+prevents a "rounding exploit" where a user could repeatedly deposit/withdraw
+to extract fractional value for free. Confirmed via
+`testYieldIncreasesWithdrawableAmount`, using `assertApproxEqAbs` with a
+1 wei tolerance rather than exact equality.
+
 ## Open / Upcoming Decisions
 - [ ] Withdrawal limits or cooldowns, if any
 - [ ] Reentrancy protection strategy for any custom logic added on top of ERC4626
