@@ -11,7 +11,11 @@ contract StakingVaultTest is Test {
     StakingVault public vault;
     DeployVault public deployer;
 
+    uint256 constant YIELD_AMOUNT = 100 ether;
+
     address USER = makeAddr("user");
+    address ATTACKER = makeAddr("attacker");
+    address VICTIM = makeAddr("victim");
 
     function setUp() public {
         deployer = new DeployVault();
@@ -19,37 +23,35 @@ contract StakingVaultTest is Test {
     }
 
     function testInflationAttackDoesNotStealVictimFunds() public {
-        address attacker = makeAddr("attacker");
-        address victim = makeAddr("victim");
 
         // Give both actors tokens to work with
-        token.mint(attacker, 1);
-        token.mint(victim, 5000 ether);
+        token.mint(ATTACKER, 1);
+        token.mint(VICTIM, 5000 ether);
 
-        // Step 1: Attacker deposits the minimum amount (1 wei of token) as first depositor
-        vm.startPrank(attacker);
+        // Step 1: ATTACKER deposits the minimum amount (1 wei of token) as first depositor
+        vm.startPrank(ATTACKER);
         token.approve(address(vault), 1);
-        vault.deposit(1, attacker);
+        vault.deposit(1, ATTACKER);
         vm.stopPrank();
 
-        // Step 2: Attacker donates a huge amount DIRECTLY to the vault, bypassing deposit()
-        token.mint(attacker, 10_000 ether);
-        vm.prank(attacker);
+        // Step 2: ATTACKER donates a huge amount DIRECTLY to the vault, bypassing deposit()
+        token.mint(ATTACKER, 10_000 ether);
+        vm.prank(ATTACKER);
         token.transfer(address(vault), 10_000 ether);
 
-        // Step 3: Victim deposits a reasonable amount
-        vm.startPrank(victim);
+        // Step 3: VICTIM deposits a reasonable amount
+        vm.startPrank(VICTIM);
         token.approve(address(vault), 5000 ether);
-        uint256 victimShares = vault.deposit(5000 ether, victim);
+        uint256 victimShares = vault.deposit(5000 ether, VICTIM);
         vm.stopPrank();
 
-        // The victim must receive a meaningful, non-zero amount of shares
+        // The VICTIM must receive a meaningful, non-zero amount of shares
         assertGt(victimShares, 0);
 
-        // The victim must be able to redeem back close to what they deposited
+        // The VICTIM must be able to redeem back close to what they deposited
         // (allowing for reasonable rounding, not losing everything)
-        vm.prank(victim);
-        uint256 assetsBack = vault.redeem(victimShares, victim, victim);
+        vm.prank(VICTIM);
+        uint256 assetsBack = vault.redeem(victimShares, VICTIM, VICTIM);
 
         assertApproxEqRel(assetsBack, 5000 ether, 0.01e18); // within 1% tolerance
     }
@@ -89,5 +91,11 @@ contract StakingVaultTest is Test {
         uint256 assetsBack = vault.redeem(shares, USER, USER);
 
         assertApproxEqAbs(assetsBack, 1100 ether, 1); // tolerance: 1 wei
+    }
+
+    function testOnlyOwnerCanMakeDepositYield() public {
+        vm.prank(USER);
+        vm.expectRevert();
+        vault.depositYield(YIELD_AMOUNT);
     }
 }
